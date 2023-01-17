@@ -1,5 +1,7 @@
 package HTTP
 
+import "github.com/go-asphyxia/networking/HTTP/query"
+
 type (
 	URI struct {
 		Original []byte
@@ -12,7 +14,7 @@ type (
 		Host string
 
 		Path  string
-		Query ArgumentList
+		Query query.List
 		Hash  string
 	}
 )
