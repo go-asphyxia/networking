@@ -14,7 +14,7 @@ type (
 		Host string
 
 		Path  string
-		Query query.List
+		Query query.Query
 		Hash  string
 	}
 )

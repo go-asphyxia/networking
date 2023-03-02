@@ -1,23 +1,25 @@
 package query
 
 import (
-	"unsafe"
-
 	"github.com/go-asphyxia/core/bytes"
 )
 
 type (
-	List [][2][]byte
+	Query []Argument
+
+	Argument struct {
+		Key, Value bytes.Buffer
+	}
 )
 
-func Decode(source []byte) List {
+func Decode(source bytes.Buffer) Query {
 	l := len(source)
 
 	if l < 0 {
 		return nil
 	}
 
-	list := make([][2][]byte, 0, (l >> 4))
+	query := make([]Argument, 0, (l >> 4))
 
 	key := true
 
@@ -26,75 +28,47 @@ func Decode(source []byte) List {
 
 	valueStart := 0
 
-	i := 0
-
-start:
-	b := source[i]
-
-	if b == '=' && key != false && keyStart <= i {
-		key = false
-
-		keyEnd = i
-		valueStart = i + 1
-	} else if b == '&' && key == false && valueStart <= i {
-		key = true
-
-		list = append(list, [2][]byte{source[keyStart:keyEnd], source[valueStart:i]})
-		keyStart = i + 1
+	for i, b := range source {
+		if b == '=' && key != false {
+			key = false
+			keyEnd = i
+			valueStart = i + 1
+		} else if b == '&' && key == false {
+			key = true
+			query = append(query, Argument{Key: source[keyStart:keyEnd], Value: source[valueStart:i]})
+			keyStart = i + 1
+		}
 	}
 
-	i += 1
-
-	if i < l {
-		goto start
+	if key == false {
+		query = append(query, Argument{Key: source[keyStart:keyEnd], Value: source[valueStart:l]})
 	}
 
-	if key == false && valueStart <= l {
-		list = append(list, [2][]byte{source[keyStart:keyEnd], source[valueStart:i]})
-	}
-
-	return list
+	return query
 }
 
-func DecodeString(source string) List {
-	return Decode(unsafe.Slice(unsafe.StringData(source), len(source)))
-}
+func Encode(query Query) bytes.Buffer {
+	i := len(query) - 1
 
-func (list *List) Reset() {
-	*list = (*list)[:0]
-}
-
-func (list List) Encode() []byte {
-	l := len(list)
-
-	if l == 0 {
+	if i < 0 {
 		return nil
 	}
 
-	buffer := &bytes.Buffer{List: make([]byte, 0, (l << 4))}
-
-	i := 0
+	buffer := make(bytes.Buffer, 0, (i << 4))
 
 start:
-	argument := list[i]
+	argument := query[i]
 
-	buffer.Write(argument[0])
+	buffer.Write(argument.Key)
 	buffer.WriteByte('=')
-	buffer.Write(argument[1])
+	buffer.Write(argument.Value)
 
-	i += 1
+	i -= 1
 
-	if i < l {
+	if i >= 0 {
 		buffer.WriteByte('&')
-
 		goto start
 	}
 
-	return buffer.List
-}
-
-func (list List) EncodeString() string {
-	encoded := list.Encode()
-
-	return unsafe.String(unsafe.SliceData(encoded), len(encoded))
+	return buffer
 }
